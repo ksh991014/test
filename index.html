@@ -19022,7 +19022,7 @@
         return;
       }
       const response = await fetch(
-        `${SUPABASE_PUBLIC_URL}/rest/v1/${REVIEW_TABLE}?reviewer_id=eq.${encodeURIComponent(reviewerId())}&select=table_name,product_id,user_verdict,note,saved_at`,
+        `${SUPABASE_PUBLIC_URL}/rest/v1/${REVIEW_TABLE}?select=table_name,product_id,user_verdict,note,saved_at&order=saved_at.desc`,
         { headers: remoteHeaders() }
       );
       if (!response.ok) {
@@ -19030,11 +19030,17 @@
         return;
       }
       const rows = await response.json();
+      const applied = new Set();
       rows.forEach((row) => {
+        const key = `${row.table_name}:${row.product_id}`;
+        if (applied.has(key)) {
+          return;
+        }
         const reviewBox = document.querySelector(`.user-review[data-review-key="${row.table_name}:${row.product_id}"]`);
         if (!reviewBox) {
           return;
         }
+        applied.add(key);
         const data = {
           verdict: row.user_verdict,
           note: row.note || "",
