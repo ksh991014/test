@@ -689,6 +689,7 @@
           <option value="user-ambiguous">User ambiguous only</option>
         </select>
       </label>
+      <button id="sync-local" class="filter-reset" type="button">Sync Local Reviews</button>
       <button id="filter-reset" class="filter-reset" type="button">Reset</button>
     </nav>
   </header>
@@ -19006,7 +19007,7 @@
             gt_verdict: card.dataset.verdict,
             user_verdict: data.verdict,
             note: data.note || "",
-            saved_at: data.savedAt,
+            saved_at: new Date().toISOString(),
           }),
         }
       );
@@ -19044,6 +19045,59 @@
       });
       updateUserDashboard();
       applySelectedFilters();
+    }
+
+    async function syncLocalReviews() {
+      const button = document.querySelector("#sync-local");
+      if (!remoteReviewsEnabled()) {
+        alert("SUPABASE_ANON_KEY is not set in this HTML file.");
+        return;
+      }
+
+      const reviewBoxes = Array.from(document.querySelectorAll(".user-review"));
+      const savedReviews = reviewBoxes
+        .map((reviewBox) => {
+          const saved = localStorage.getItem(storageKey(reviewBox));
+          if (!saved) {
+            return null;
+          }
+          try {
+            return { reviewBox, data: JSON.parse(saved) };
+          } catch (error) {
+            return null;
+          }
+        })
+        .filter((item) => item && item.data.verdict);
+
+      if (!savedReviews.length) {
+        alert("No local reviews found in this browser.");
+        return;
+      }
+
+      button.disabled = true;
+      let success = 0;
+      let failed = 0;
+      let firstError = "";
+
+      for (const item of savedReviews) {
+        try {
+          await saveRemoteReview(item.reviewBox, item.data);
+          success += 1;
+          item.reviewBox.querySelector(".review-status").textContent = "Synced to Supabase";
+        } catch (error) {
+          console.error(error);
+          failed += 1;
+          if (!firstError) {
+            firstError = String(error.message || error);
+          }
+          item.reviewBox.querySelector(".review-status").textContent = "Sync failed";
+        }
+        button.textContent = `Syncing ${success + failed}/${savedReviews.length}`;
+      }
+
+      button.disabled = false;
+      button.textContent = "Sync Local Reviews";
+      alert(`Sync complete. Success: ${success}, Failed: ${failed}${firstError ? "\nFirst error: " + firstError : ""}`);
     }
 
     function percent(numerator, denominator) {
@@ -19184,6 +19238,7 @@
     document.querySelector("#table-filter").addEventListener("change", applySelectedFilters);
     document.querySelector("#verdict-filter").addEventListener("change", applySelectedFilters);
     document.querySelector("#overlap-filter").addEventListener("change", applySelectedFilters);
+    document.querySelector("#sync-local").addEventListener("click", syncLocalReviews);
     document.querySelector("#filter-reset").addEventListener("click", () => {
       document.querySelector("#overlap-filter").value = "all";
       setFilterValues("all", "all", "all");
