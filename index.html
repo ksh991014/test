@@ -297,15 +297,11 @@
       line-height: 1.2;
     }
 
-    .diff-button {
-      min-height: 28px;
-      border: 1px solid #d3a43a;
+    .diff-count {
       border-radius: 8px;
-      padding: 0 8px;
+      padding: 5px 8px;
       background: #fff8e6;
       color: #8a6200;
-      cursor: pointer;
-      font: inherit;
       font-size: 12px;
     }
 
@@ -327,9 +323,9 @@
 
     main {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-      gap: 16px;
-      padding: 20px;
+      grid-template-columns: repeat(10, minmax(0, 1fr));
+      gap: 10px;
+      padding: 12px;
     }
 
     .card {
@@ -665,28 +661,26 @@
     <nav class="filters" aria-label="Table filter">
       
       <label class="filter-field">
-        <span>Type</span>
-        <select id="table-filter">
-          <option value="all">All (400)</option><option value="test_dress">Dress (100)</option><option value="test_pants">Pants (100)</option><option value="test_skirt">Skirt (100)</option><option value="test_top_clothes">Clothes (100)</option>
+        <span>Category</span>
+        <select id="category-filter">
+          <option value="test_dress">Dress</option><option value="test_pants">Pants</option><option value="test_skirt">Skirt</option><option value="test_top_clothes">Clothes</option>
         </select>
       </label>
       <label class="filter-field">
-        <span>View</span>
-        <select id="verdict-filter">
+        <span>GT / Pred</span>
+        <select id="gt-filter">
           <option value="all">All</option>
-          <option value="wrong">Wrong only</option>
           <option value="correct">Correct only</option>
+          <option value="wrong">Wrong only</option>
         </select>
       </label>
       <label class="filter-field">
-        <span>Overlap</span>
-        <select id="overlap-filter">
+        <span>User</span>
+        <select id="user-filter">
           <option value="all">All</option>
-          <option value="both-wrong">GT wrong + User wrong</option>
-          <option value="gt-wrong-user-correct">GT wrong + User correct</option>
-          <option value="gt-correct-user-wrong">GT correct + User wrong</option>
-          <option value="user-wrong">User wrong only</option>
-          <option value="user-ambiguous">User ambiguous only</option>
+          <option value="correct">Correct only</option>
+          <option value="wrong">Wrong only</option>
+          <option value="ambiguous">Ambiguous only</option>
         </select>
       </label>
       <button id="sync-local" class="filter-reset" type="button">Sync Local Reviews</button>
@@ -19155,9 +19149,7 @@
           <article class="user-stat">
             <div class="user-stat-head">
               <h2>${TABLE_LABELS[table]}</h2>
-              <button class="diff-button" type="button" data-table="${table}" data-verdict="all" data-difference="different">
-                Different ${different}
-              </button>
+              <span class="diff-count">Different ${different}</span>
             </div>
             <div class="stat-lines">
               <span>GT accuracy <b>${percent(gtCorrect, total)}</b> (${gtCorrect} correct / ${gtWrong} wrong)</span>
@@ -19170,34 +19162,27 @@
       grid.innerHTML = rows.join("");
     }
 
-    function applyFilters(table, verdict, difference) {
+    function applyFilters(category, gtVerdict, userVerdict) {
       document.querySelectorAll(".card").forEach((card) => {
-        const tableMatch = table === "all" || card.dataset.table === table;
-        const verdictMatch = verdict === "all" || card.dataset.verdict === verdict;
-        const overlap = document.querySelector("#overlap-filter").value;
-        const overlapMatch =
-          overlap === "all" ||
-          (overlap === "both-wrong" && card.dataset.verdict === "wrong" && card.dataset.userVerdict === "wrong") ||
-          (overlap === "gt-wrong-user-correct" && card.dataset.verdict === "wrong" && card.dataset.userVerdict === "correct") ||
-          (overlap === "gt-correct-user-wrong" && card.dataset.verdict === "correct" && card.dataset.userVerdict === "wrong") ||
-          (overlap === "user-wrong" && card.dataset.userVerdict === "wrong") ||
-          (overlap === "user-ambiguous" && card.dataset.userVerdict === "ambiguous");
-        const differenceMatch = difference === "all" || card.dataset.userDifference === difference;
-        card.classList.toggle("hidden", !tableMatch || !verdictMatch || !overlapMatch || !differenceMatch);
+        const categoryMatch = card.dataset.table === category;
+        const gtMatch = gtVerdict === "all" || card.dataset.verdict === gtVerdict;
+        const userMatch = userVerdict === "all" || card.dataset.userVerdict === userVerdict;
+        card.classList.toggle("hidden", !categoryMatch || !gtMatch || !userMatch);
       });
     }
 
     function applySelectedFilters() {
-      const table = document.querySelector("#table-filter").value;
-      const verdict = document.querySelector("#verdict-filter").value;
-      applyFilters(table, verdict, "all");
+      const category = document.querySelector("#category-filter").value;
+      const gtVerdict = document.querySelector("#gt-filter").value;
+      const userVerdict = document.querySelector("#user-filter").value;
+      applyFilters(category, gtVerdict, userVerdict);
     }
 
-    function setFilterValues(table, verdict, difference) {
-      document.querySelector("#table-filter").value = table || "all";
-      document.querySelector("#verdict-filter").value = verdict || "all";
-      document.querySelector("#overlap-filter").value = "all";
-      applyFilters(table || "all", verdict || "all", difference || "all");
+    function setFilterValues(category, gtVerdict, userVerdict) {
+      document.querySelector("#category-filter").value = category || "test_dress";
+      document.querySelector("#gt-filter").value = gtVerdict || "all";
+      document.querySelector("#user-filter").value = userVerdict || "all";
+      applySelectedFilters();
     }
 
     document.querySelectorAll(".user-review").forEach((reviewBox) => {
@@ -19241,24 +19226,22 @@
       setSummaryCollapsed(!document.body.classList.contains("summary-collapsed"));
     });
 
-    document.querySelector("#table-filter").addEventListener("change", applySelectedFilters);
-    document.querySelector("#verdict-filter").addEventListener("change", applySelectedFilters);
-    document.querySelector("#overlap-filter").addEventListener("change", applySelectedFilters);
+    document.querySelector("#category-filter").addEventListener("change", applySelectedFilters);
+    document.querySelector("#gt-filter").addEventListener("change", applySelectedFilters);
+    document.querySelector("#user-filter").addEventListener("change", applySelectedFilters);
     document.querySelector("#sync-local").addEventListener("click", syncLocalReviews);
     document.querySelector("#filter-reset").addEventListener("click", () => {
-      document.querySelector("#overlap-filter").value = "all";
-      setFilterValues("all", "all", "all");
+      setFilterValues("test_dress", "all", "all");
     });
+    applySelectedFilters();
 
     document.addEventListener("click", (event) => {
-      const button = event.target.closest(".category-stat, .diff-button");
+      const button = event.target.closest(".category-stat");
       if (!button) {
         return;
       }
-      const table = button.dataset.table || "all";
-      const verdict = button.dataset.verdict || "all";
-      const difference = button.dataset.difference || "all";
-      setFilterValues(table, verdict, difference);
+      const table = button.dataset.table || "test_dress";
+      setFilterValues(table, "all", "all");
     });
   </script>
 </body>
